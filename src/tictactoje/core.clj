@@ -1,17 +1,18 @@
-(ns tictactoje.core)
+(ns tictactoje.core
+  (:use (clojure set)))
 
 (def winlist [0 0 0 0 0 0 0 0])
 (def user-win (ref winlist))
 (def comp-win (ref winlist))
 
-(def initial-board [\_ \_ \_
-                    \_ \_ \_
-                    \_ \_ \_])
+(def initial-board [, , ,
+                    , , ,
+                    , , ,])
 
 (def board (ref initial-board))
 
-(defn reset[] (dosync (ref-set p1-win winlist)
-                      (ref-set p2-win winlist)
+(defn reset[] (dosync (ref-set user-win winlist)
+                      (ref-set comp-win winlist)
                       (ref-set board initial-board)))
 
 (def win-positions [#{0 1 2}
@@ -34,21 +35,27 @@
   (let [index (fn [coll] map vector (iterate inc 1) coll)]
     (for [[i v] (index coll) :when (empty? v)] i)))
 
+(defn best-play
+  ([pos]
+     pos)
+  ([pos1 pos2]
+     (if (< (count (nth position-win pos1)) (count (nth position-win pos2)))
+       pos2
+       pos1))
+  ([pos1 pos2 & more]
+     (reduce blah (blah pos1 pos2) more)))
 
 (defn positional-play [winlist rank]
   (let [positions (intersection (available-positions board) (winning-positions winlist))]
-    (if (> (count positions) 1)
-      ()
-      (first positions))))
+    (best-play positions)))
 
 (defn comp-play []
-  (let [enemy-rank (apply max @enemywin) comp-rank (apply max @yourwin)]
+  (let [enemy-rank (apply max @user-win) comp-rank (apply max @comp-win)]
     (if (> comp-rank enemy-rank)
-      (positional-play yourwin comp-rank)
-      (positional-play enemywin enemy-rank))))
+      (positional-play comp-win comp-rank)
+      (positional-play user-win enemy-rank))))
 
 (defn play [pos]
   (do (update-wins user-win pos)
-      (update-wins comp-win comp-play)
-      (update-screen)))
+      (update-wins comp-win comp-play)))
 
