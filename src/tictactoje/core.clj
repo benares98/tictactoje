@@ -5,15 +5,16 @@
 (def user-win (ref winlist))
 (def comp-win (ref winlist))
 
-(def initial-board [, , ,
-                    , , ,
-                    , , ,])
+(def initial-board [\_ \_ \_
+                    \_ \_ \_
+                    \_ \_ \_])
 
 (def board (ref initial-board))
 
 (defn reset[] (dosync (ref-set user-win winlist)
                       (ref-set comp-win winlist)
                       (ref-set board initial-board)))
+(defn print-board [board] ())
 
 (def win-positions [#{0 1 2}
                     #{3 4 5}
@@ -27,13 +28,16 @@
   (let [inc-found (fn [pos coll val] (if (contains? coll pos) (inc val) val))]
     (dosync (ref-set winlist (map #(inc-found pos %1 %2) win-positions @winlist)))))
 
+(defn update-board [board pos player]
+  (dosync (ref-set board (assoc @board pos player))))
+                             
 (defn winning-positions [winlist rank]
-  (let[ranked-positions (fn[rank positions ranking] (if (= rank ranking)(positions)))]
+  (let[ranked-positions (fn[rank positions ranking] (if (= rank ranking)positions))]
     (mapcat #(ranked-positions rank %1 %2) win-positions @winlist)))
 
 (defn available-positions [coll]
   (let [index (fn [coll] map vector (iterate inc 1) coll)]
-    (for [[i v] (index coll) :when (empty? v)] i)))
+    (for [[i v] (index coll) :when (= \_ v)] i)))
 
 (defn best-play
   ([pos]
@@ -43,10 +47,10 @@
        pos2
        pos1))
   ([pos1 pos2 & more]
-     (reduce blah (blah pos1 pos2) more)))
+     (reduce best-play (best-play pos1 pos2) more)))
 
 (defn positional-play [winlist rank]
-  (let [positions (intersection (available-positions board) (winning-positions winlist))]
+  (let [positions (intersection (available-positions board) (winning-positions winlist rank))]
     (best-play positions)))
 
 (defn comp-play []
