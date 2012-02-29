@@ -1,12 +1,12 @@
 (ns tictactoje.core
   (:use [clojure.set :only [intersection]]))
 
-(def winlist
+(def initial-score
   "There are eight ways to win tic tac toe.  If any of the items reaches 3 (to put it another way, when that win scenario has all of its positions covered by the player) that player is the winner"
   [0 0 0 0 0 0 0 0])
 
-(def x (ref winlist))
-(def o (ref winlist))
+(def x (ref initial-score))
+(def o (ref initial-score))
 
 (def player-map {:x x :o o})
 
@@ -22,8 +22,8 @@
 
 (def board (ref initial-board))
 
-(defn reset[] (dosync (ref-set x winlist)
-                      (ref-set o winlist)
+(defn reset[] (dosync (ref-set x initial-score)
+                      (ref-set o initial-score)
                       (ref-set play-queue initial-queue)
                       (ref-set board initial-board)))
 
@@ -43,15 +43,18 @@
   (let [inc-found (fn [pos coll val] (if (contains? coll pos) (inc val) val))]
     (dosync (ref-set player (map #(inc-found pos %1 %2) win-positions @player)))))
 
-(defn normalize-score [] (let[x-score @x o-score @o score-overlap (fn [s1 s2](map #(if (and (> %1 0) (> %2 0)) -1 %1) s1 s2))]
-                           (dosync (ref-set x (score-overlap x-score o-score))
-                                   (ref-set o (score-overlap o-score x-score)))))
+(defn normalize-score
+  "If the player's occupy the same scenario, then that means neither of them can win with that scenario and so set their score to a low level as to not affect the rank check"
+  [] (let[x-score @x o-score @o score-overlap (fn [s1 s2](map #(if (and (> %1 0) (> %2 0)) -1 %1) s1 s2))]
+       (dosync (ref-set x (score-overlap x-score o-score))
+               (ref-set o (score-overlap o-score x-score)))))
 
 (defn update-board [board pos player]
   (dosync (ref-set board (assoc @board pos player))))
 
-(defn update-screen [board]
-  (for [line (partition 3 board)] (println line)))
+(defn print-board
+  ([] (print-board @board))
+  ([board] (for [line (partition 3 board)] (println line))))
 
 (defn winning-positions [player rank]
   (let[ranked-positions (fn[rank positions ranking] (if (= rank ranking)positions))]
@@ -81,14 +84,24 @@
       (positional-play player rank)
       (positional-play enemy enemy-rank))))
 
+(defn winner? [player] (= 3 (apply max @(player player-map))))
+(defn tie? [] (empty? (available-positions @board)))
+
 (defn play [pos]
   (let [player (peek @play-queue)]
     (dosync (update-wins (player player-map) pos)
             (normalize-score)
             (update-board board pos player)
             (ref-set play-queue (pop @play-queue))
-            (update-screen @board))))
+            (if (winner? player)
+              (do (println "player" player "is the winner.")
+                  (reset))
+              (if (tie?)
+                (do (println "Nobody is the winner.  Everyone loses.")
+                    (reset)))))))
+
+(defn other-player [player] (if (= player x) o x))
 
 (defn comp-play []
-  (let [comp ((peek @play-queue) player-map) user ((peek (pop @play-queue)) player-map)]
-    (play (suggested-position comp user))))
+  (let [comp ((peek @play-queue) player-map) user (other-player comp)]
+    (play (suggested-position comp user)))) 
