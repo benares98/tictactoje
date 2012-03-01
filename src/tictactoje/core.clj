@@ -16,9 +16,9 @@
 
 (def initial-board
   "There are 9 positions on the board"
-  [\_ \_ \_
-   \_ \_ \_
-   \_ \_ \_])
+  [nil nil nil
+   nil nil nil
+   nil nil nil])
 
 (def board (ref initial-board))
 
@@ -54,7 +54,7 @@
 
 (defn print-board
   ([] (print-board @board))
-  ([board] (for [line (partition 3 board)] (println line))))
+  ([board] (for [[x y z] (partition 3 board)] (println [x y z]))))
 
 (defn winning-positions [player rank]
   (let[ranked-positions (fn[rank positions ranking] (if (= rank ranking)positions))]
@@ -62,7 +62,7 @@
 
 (defn available-positions [coll]
   (let [index (fn [coll] (map vector (iterate inc 0) coll))]
-    (for [[i v] (index coll) :when (= \_ v)] i)))
+    (set (for [[i v] (index coll) :when (nil? v)] i))))
 
 (defn max-weight
   ([pos]
@@ -75,7 +75,7 @@
      (reduce max-weight (max-weight pos1 pos2) more)))
 
 (defn positional-play [player rank]
-  (let [positions (intersection (set (available-positions @board)) (set (winning-positions player rank)))]
+  (let [positions (intersection (available-positions @board) (set (winning-positions player rank)))]
     (apply max-weight positions)))
 
 (defn suggested-position [player enemy]
@@ -89,16 +89,18 @@
 
 (defn play [pos]
   (let [player (peek @play-queue)]
-    (dosync (update-wins (player player-map) pos)
-            (normalize-score)
-            (update-board board pos player)
-            (ref-set play-queue (pop @play-queue))
-            (if (winner? player)
-              (do (println "player" player "is the winner.")
-                  (reset))
-              (if (tie?)
-                (do (println "Nobody is the winner.  Everyone loses.")
-                    (reset)))))))
+    (if (contains? (available-positions @board) pos)
+      (dosync (update-wins (player player-map) pos)
+              (normalize-score)
+              (update-board board pos player)
+              (ref-set play-queue (pop @play-queue))
+              (if (winner? player)
+                (do (println "player" player "is the winner.")
+                    (reset))
+                (if (tie?)
+                  (do (println "Nobody is the winner.  Everyone loses.")
+                      (reset)))))
+      (println "That position is already occupied.  Try again."))))
 
 (defn other-player [player] (if (= player x) o x))
 
