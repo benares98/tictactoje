@@ -27,7 +27,7 @@
                       (ref-set play-queue initial-queue)
                       (ref-set board initial-board)))
 
-(def win-positions
+(def scoring-positions
   "This is the exhaustive set of positions that if there's player covered all the positions of just one of the sets first, then that player is the winner.  Notice that the first 3 sets cover horizontal wins, the next 3 sets cover vertical wins and the last two cover diagonal wins"
   [#{0 1 2}
    #{3 4 5}
@@ -39,12 +39,12 @@
    #{1 3}  #{1 4 6 7} #{1 5}
    #{2 3 7}  #{2 4}   #{2 5 6}])
 
-(defn update-wins [player pos]
+(defn update-score [player pos]
   (let [inc-found (fn [pos coll val] (if (contains? coll pos) (inc val) val))]
-    (dosync (ref-set player (map #(inc-found pos %1 %2) win-positions @player)))))
+    (dosync (ref-set player (map #(inc-found pos %1 %2) scoring-positions @player)))))
 
-(defn normalize-score
-  "If the player's occupy the same scenario, then that means neither of them can win with that scenario and so set their score to a low level as to not affect the rank check"
+(defn normalize-scores
+  "If the players occupy the same scenarios, then that means neither of them can win with that scenario and so set their score to a low level as to not affect the rank check"
   [] (let[x-score @x o-score @o score-overlap (fn [s1 s2](map #(if (and (> %1 0) (> %2 0)) -1 %1) s1 s2))]
        (dosync (ref-set x (score-overlap x-score o-score))
                (ref-set o (score-overlap o-score x-score)))))
@@ -58,7 +58,7 @@
 
 (defn winning-positions [player rank]
   (let[ranked-positions (fn[rank positions ranking] (if (= rank ranking)positions))]
-    (mapcat #(ranked-positions rank %1 %2) win-positions @player)))
+    (mapcat #(ranked-positions rank %1 %2) scoring-positions @player)))
 
 (defn available-positions [coll]
   (let [index (fn [coll] (map vector (iterate inc 0) coll))]
@@ -90,7 +90,7 @@
 (defn play [pos]
   (let [player (peek @play-queue)]
     (if (contains? (available-positions @board) pos)
-      (dosync (update-wins (player player-map) pos)
+      (dosync (update-score (player player-map) pos)
               (normalize-score)
               (update-board board pos player)
               (ref-set play-queue (pop @play-queue))
@@ -100,10 +100,24 @@
                 (if (tie?)
                   (do (println "Nobody is the winner.  Everyone loses.")
                       (reset)))))
-      (println "That position is already occupied.  Try again."))))
+      (println "That position is invalid.  Try again."))))
 
 (defn other-player [player] (if (= player x) o x))
 
 (defn comp-play []
   (let [comp ((peek @play-queue) player-map) user (other-player comp)]
-    (play (suggested-position comp user)))) 
+    (play (suggested-position comp user))))
+
+;;Numbers mean positions on the board
+;;[0|1|2]
+;;[3|4|5]
+;;[6|7|8]
+
+;;First player is always x
+;;You can let the computer be the first player by typing inputing (comp-play) at the repl
+;;To play your positions input play and the number signifying the position at the repl. ex.  (play 0)
+;;The board resets when a player has won  and/or that the positions have been filled up.
+
+;;(print-board) prints the board in the repl
+
+;;(comp-play) can be used repeatedly to have the computer play itself.  It's very boring however.  This is also the way for the computer to take over for your move.
