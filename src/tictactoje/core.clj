@@ -91,7 +91,7 @@
   (let [player (peek @play-queue)]
     (if (contains? (available-positions @board) pos)
       (dosync (update-score (player player-map) pos)
-              (normalize-score)
+              (normalize-scores)
               (update-board board pos player)
               (ref-set play-queue (pop @play-queue))
               (if (winner? player)
